@@ -1,0 +1,9 @@
+export { ServicesHero } from './ServicesHero';
+export { ServicesHeroVisual } from './ServicesHeroVisual';
+export { ServiceOverview } from './ServiceOverview';
+export { DigitalSolutions } from './DigitalSolutions';
+export { AIAndAutomation } from './AIAndAutomation';
+export { TechnicalTraining } from './TechnicalTraining';
+export { ServicesProcess } from './ServicesProcess';
+export { ServicesFAQ } from './ServicesFAQ';
+export { ServicesCTA } from './ServicesCTA';

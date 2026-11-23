@@ -1,0 +1,9 @@
+export { AboutHero } from './AboutHero';
+export { AboutHeroVisual } from './AboutHeroVisual';
+export { OurStory } from './OurStory';
+export { OurMission } from './OurMission';
+export { OurVision } from './OurVision';
+export { OurValues } from './OurValues';
+export { OurApproach } from './OurApproach';
+export { OurFocus } from './OurFocus';
+export { AboutCTA } from './AboutCTA';

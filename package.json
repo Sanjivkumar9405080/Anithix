@@ -1,0 +1,15 @@
+{
+  "name": "anthix-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ANTHIX Technology Startup - Full Stack Monorepo",
+  "scripts": {
+    "dev:frontend": "npm run --prefix frontend dev",
+    "dev:backend": "npm run --prefix backend dev",
+    "build:frontend": "npm run --prefix frontend build",
+    "build:backend": "npm run --prefix backend build",
+    "build": "npm run build:frontend && npm run build:backend",
+    "test:backend": "npm run --prefix backend test",
+    "admin:create": "npm run --prefix backend admin:create --"
+  }
+}
