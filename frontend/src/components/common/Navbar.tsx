@@ -55,10 +55,8 @@ export const Navbar = () => {
     { name: 'Contact', path: '/contact' },
   ];
 
-  // Add Dashboard link to nav if authenticated
-  const visibleNavLinks = isAuthenticated
-    ? [...navLinks.slice(0, 4), { name: 'Dashboard', path: '/dashboard' }, ...navLinks.slice(4)]
-    : navLinks;
+  // All standard navigation links remain visible exactly as they were before and after login
+  const visibleNavLinks = navLinks;
 
   const handleLinkClick = (path: string, e: React.MouseEvent) => {
     setMobileMenuOpen(false);
@@ -152,35 +150,53 @@ export const Navbar = () => {
           {/* Action Buttons & Profile State */}
           <div className="flex items-center gap-2 sm:gap-3">
             {isAuthenticated && user ? (
-              <div className="relative" ref={dropdownRef}>
-                <button
-                  type="button"
-                  onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                  className="hidden sm:flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-full bg-white hover:bg-background-alt border border-border transition-all shadow-soft-xs hover:border-primary/40 focus:outline-none"
-                  aria-expanded={userDropdownOpen}
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                {/* 1. Dashboard Navigation Option - Shown alongside Profile after login */}
+                <NavLink
+                  to="/dashboard"
+                  className={({ isActive }) =>
+                    `hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs lg:text-sm font-semibold transition-all duration-200 ${
+                      isActive || location.pathname.startsWith('/dashboard')
+                        ? 'text-primary font-bold bg-background-lavender/90 border border-primary/20 shadow-soft-xs'
+                        : 'text-text-secondary hover:text-text-main hover:bg-background-alt border border-transparent'
+                    }`
+                  }
                 >
-                  {user.profileImage ? (
-                    <img
-                      src={getAssetUrl(user.profileImage)}
-                      alt={user.name}
-                      className="w-7 h-7 rounded-full object-cover border border-primary/30"
+                  <LayoutDashboard className="w-3.5 h-3.5 text-primary" />
+                  <span>Dashboard</span>
+                </NavLink>
+
+                {/* 2. Profile Icon / Dropdown Menu */}
+                <div className="relative" ref={dropdownRef}>
+                  <button
+                    type="button"
+                    onClick={() => setUserDropdownOpen(!userDropdownOpen)}
+                    className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-full bg-white hover:bg-background-alt border border-border transition-all shadow-soft-xs hover:border-primary/40 focus:outline-none"
+                    aria-expanded={userDropdownOpen}
+                    aria-label="User profile menu"
+                  >
+                    {user.profileImage ? (
+                      <img
+                        src={getAssetUrl(user.profileImage)}
+                        alt={user.name}
+                        className="w-7 h-7 rounded-full object-cover border border-primary/30"
+                      />
+                    ) : (
+                      <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-primary to-sky-400 text-white font-bold text-xs flex items-center justify-center shadow-soft-xs font-heading">
+                        {user.name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+
+                    <span className="text-xs font-semibold text-text-main max-w-[100px] truncate font-sans hidden sm:inline">
+                      {user.name.split(' ')[0]}
+                    </span>
+
+                    <ChevronDown
+                      className={`w-3.5 h-3.5 text-text-secondary transition-transform duration-200 ${
+                        userDropdownOpen ? 'rotate-180 text-primary' : ''
+                      }`}
                     />
-                  ) : (
-                    <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-primary to-sky-400 text-white font-bold text-xs flex items-center justify-center shadow-soft-xs font-heading">
-                      {user.name.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-
-                  <span className="text-xs font-semibold text-text-main max-w-[100px] truncate font-sans">
-                    {user.name.split(' ')[0]}
-                  </span>
-
-                  <ChevronDown
-                    className={`w-3.5 h-3.5 text-text-secondary transition-transform duration-200 ${
-                      userDropdownOpen ? 'rotate-180 text-primary' : ''
-                    }`}
-                  />
-                </button>
+                  </button>
 
                 {/* Desktop User Avatar Dropdown Menu */}
                 {userDropdownOpen && (
@@ -268,7 +284,8 @@ export const Navbar = () => {
                   </div>
                 )}
               </div>
-            ) : (
+            </div>
+          ) : (
               <div className="hidden sm:flex items-center gap-2">
                 <Link
                   to="/login"

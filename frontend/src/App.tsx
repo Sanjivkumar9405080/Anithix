@@ -85,24 +85,7 @@ export function App() {
             <Route path="settings" element={<AdminSettings />} />
           </Route>
 
-          {/* Protected Client Dashboard Portal with UserLayout */}
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <UserLayout />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<DashboardOverview />} />
-            <Route path="profile" element={<DashboardProfile />} />
-            <Route path="requests" element={<DashboardRequests />} />
-            <Route path="demos" element={<DashboardDemos />} />
-            <Route path="notifications" element={<DashboardNotifications />} />
-            <Route path="settings" element={<DashboardSettings />} />
-          </Route>
-
-          {/* Public & Client Protected Routes wrapped in MainLayout */}
+          {/* Public & Client Protected Routes wrapped in MainLayout (Navbar + Footer) */}
           <Route element={<MainLayout />}>
             {/* Public Routes */}
             <Route path="/" element={<Home />} />
@@ -117,7 +100,7 @@ export function App() {
             <Route path="/register" element={<Register />} />
             <Route path="/verify-otp" element={<VerifyOtp />} />
 
-            {/* Protected Routes */}
+            {/* Protected Contact Route */}
             <Route
               path="/contact"
               element={
@@ -126,6 +109,23 @@ export function App() {
                 </ProtectedRoute>
               }
             />
+
+            {/* Protected Client Dashboard Routes (retraining main website navbar) */}
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <UserLayout />
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<DashboardOverview />} />
+              <Route path="profile" element={<DashboardProfile />} />
+              <Route path="requests" element={<DashboardRequests />} />
+              <Route path="demos" element={<DashboardDemos />} />
+              <Route path="notifications" element={<DashboardNotifications />} />
+              <Route path="settings" element={<DashboardSettings />} />
+            </Route>
 
             {/* Catch-all Route */}
             <Route path="*" element={<Home />} />
