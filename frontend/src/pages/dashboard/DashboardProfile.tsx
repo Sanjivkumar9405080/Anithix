@@ -18,6 +18,7 @@ import {
   apiUploadUserAvatar,
   apiRemoveUserAvatar,
   UpdateProfilePayload,
+  getAssetUrl,
 } from '../../services/api';
 
 const AVAILABLE_INTERESTS = [
@@ -237,7 +238,7 @@ export const DashboardProfile: React.FC = () => {
               />
             ) : user?.profileImage ? (
               <img
-                src={user.profileImage}
+                src={getAssetUrl(user.profileImage)}
                 alt={user.name}
                 className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl object-cover border border-border shadow-soft-sm"
               />

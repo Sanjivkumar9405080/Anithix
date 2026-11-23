@@ -23,6 +23,7 @@ import {
   AdminContactMessage,
   EmailActivityItem,
   DemoItem,
+  getAssetUrl,
 } from '../../services/api';
 import { Button } from '../../components/common/Button';
 import { EmailComposerModal } from '../../components/admin/EmailComposerModal';
@@ -197,7 +198,7 @@ export const AdminUserDetail: React.FC = () => {
             <div className="flex items-center gap-3.5 pb-4 border-b border-border">
               {user.profileImage ? (
                 <img
-                  src={user.profileImage}
+                  src={getAssetUrl(user.profileImage)}
                   alt={user.name}
                   className="w-14 h-14 rounded-2xl object-cover border border-primary/30 shadow-soft-sm flex-shrink-0"
                 />

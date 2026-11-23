@@ -205,6 +205,18 @@ export interface AdminUser {
 export const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/$/, '');
 
 /**
+ * Normalizes asset paths (e.g. avatars, uploaded documents) to ensure they resolve
+ * against the remote Vercel backend in production or localhost in development.
+ */
+export function getAssetUrl(path?: string): string {
+  if (!path) return '';
+  if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('data:') || path.startsWith('blob:')) {
+    return path;
+  }
+  return `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
+}
+
+/**
  * Common fetch wrapper that ensures credentials (cookies) are transmitted
  */
 async function apiRequest<T = any>(

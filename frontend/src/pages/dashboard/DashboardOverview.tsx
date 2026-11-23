@@ -17,6 +17,7 @@ import {
   AdminContactMessage,
   DemoItem,
   UserDashboardStats,
+  getAssetUrl,
 } from '../../services/api';
 
 export const DashboardOverview: React.FC = () => {
@@ -108,7 +109,7 @@ export const DashboardOverview: React.FC = () => {
           <div className="flex items-center gap-4 sm:gap-5">
             {user?.profileImage ? (
               <img
-                src={user.profileImage}
+                src={getAssetUrl(user.profileImage)}
                 alt={user.name}
                 className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover border-2 border-primary/20 shadow-soft-sm flex-shrink-0"
               />

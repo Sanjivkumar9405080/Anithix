@@ -1,0 +1,21 @@
+# Root Netlify Configuration for ANTHIX Repository
+
+[build]
+  base = "frontend"
+  publish = "dist"
+  command = "npm run build"
+
+# React Router Single-Page Application (SPA) rewrite
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Production Security Headers
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"

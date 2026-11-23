@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useScrollPosition } from '../../hooks/useScrollPosition';
 import { useAuth } from '../../context/AuthContext';
+import { getAssetUrl } from '../../services/api';
 import { Button } from './Button';
 
 export const Navbar = () => {
@@ -160,7 +161,7 @@ export const Navbar = () => {
                 >
                   {user.profileImage ? (
                     <img
-                      src={user.profileImage}
+                      src={getAssetUrl(user.profileImage)}
                       alt={user.name}
                       className="w-7 h-7 rounded-full object-cover border border-primary/30"
                     />
@@ -332,7 +333,7 @@ export const Navbar = () => {
                 <div className="flex items-center gap-3">
                   {user.profileImage ? (
                     <img
-                      src={user.profileImage}
+                      src={getAssetUrl(user.profileImage)}
                       alt={user.name}
                       className="w-10 h-10 rounded-full object-cover border border-primary/40 shadow-soft-xs"
                     />

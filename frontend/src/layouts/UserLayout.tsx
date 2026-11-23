@@ -15,7 +15,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { apiGetUserNotifications } from '../services/api';
+import { apiGetUserNotifications, getAssetUrl } from '../services/api';
 
 export const UserLayout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -230,7 +230,7 @@ export const UserLayout: React.FC = () => {
             >
               {user?.profileImage ? (
                 <img
-                  src={user.profileImage}
+                  src={getAssetUrl(user.profileImage)}
                   alt={user.name}
                   className="w-8 h-8 rounded-full object-cover border border-primary/30 flex-shrink-0"
                 />
@@ -306,7 +306,7 @@ export const UserLayout: React.FC = () => {
             >
               {user?.profileImage ? (
                 <img
-                  src={user.profileImage}
+                  src={getAssetUrl(user.profileImage)}
                   alt={user.name}
                   className="w-7 h-7 rounded-full object-cover border border-primary/30"
                 />
