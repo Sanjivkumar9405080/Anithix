@@ -59,7 +59,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const register = async (payload: RegisterPayload) => {
-    return apiRegister(payload);
+    const res = await apiRegister(payload);
+    if (res.success && res.data?.user) {
+      setUser(res.data.user);
+    }
+    return res;
   };
 
   const verifyRegistrationOtp = async (payload: VerifyOtpPayload) => {

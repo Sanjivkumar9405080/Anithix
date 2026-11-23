@@ -18,7 +18,8 @@ const isDbReady = (res: Response): boolean => {
 export class AuthController {
   /**
    * POST /api/auth/register
-   * Submits registration details, creates unverified user, and dispatches email OTP
+   * Submits registration details, creates user profile immediately,
+   * establishes authenticated session, and attempts optional OTP email delivery.
    */
   public static register = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
@@ -27,9 +28,9 @@ export class AuthController {
       const { name, email, password } = req.body;
       const normalizedEmail = email.toLowerCase().trim();
 
-      // 1. Check if verified user already exists
+      // 1. Check if user already exists
       const existingUser = await User.findOne({ email: normalizedEmail }).exec();
-      if (existingUser && existingUser.isEmailVerified) {
+      if (existingUser) {
         sendError(res, 'An account with this email address already exists. Please log in.', 409);
         return;
       }
@@ -37,54 +38,49 @@ export class AuthController {
       // 2. Hash password with bcrypt (salt rounds: 12)
       const passwordHash = await AuthService.hashPassword(password);
 
-      // 3. Upsert unverified account record
-      if (existingUser) {
-        existingUser.name = name.trim();
-        existingUser.passwordHash = passwordHash;
-        existingUser.isEmailVerified = false;
-        existingUser.role = 'user'; // strict default
-        await existingUser.save();
-      } else {
-        await User.create({
-          name: name.trim(),
-          email: normalizedEmail,
-          passwordHash,
-          isEmailVerified: false,
-          role: 'user',
-          accountStatus: 'active',
-        });
-      }
-
-      // 4. Create pending OTP record with registration metadata
-      const { otp } = await OtpService.createOtp(normalizedEmail, 'registration', {
+      // 3. Create full active user profile immediately
+      const user = await User.create({
         name: name.trim(),
+        email: normalizedEmail,
         passwordHash,
+        isEmailVerified: false,
+        role: 'user',
+        accountStatus: 'active',
       });
 
-      // 5. Send Registration OTP email with delivery failure guard
+      // 4. Issue authenticated session (token + HttpOnly cookie) so profile is immediately active
+      const token = AuthService.generateToken(user);
+      AuthService.setAuthCookie(res, token);
+
+      // 5. Optionally attempt OTP generation & email delivery (does not block account creation if email fails)
+      let otpSent = false;
       try {
+        const { otp } = await OtpService.createOtp(normalizedEmail, 'registration', {
+          name: name.trim(),
+          passwordHash,
+          userId: user._id.toString(),
+        });
+
         await EmailService.sendRegistrationOtp(normalizedEmail, name.trim(), otp);
-      } catch (emailErr: any) {
-        console.error(`[Auth Register] Email dispatch failed for ${normalizedEmail}:`, emailErr.message);
-
-        // Clean up unverified user & OTP record so the user can re-try without orphaned records or cooldown locks
-        if (!existingUser) {
-          await User.deleteOne({ email: normalizedEmail }).catch(() => null);
-        }
-        await OTPVerification.deleteMany({ email: normalizedEmail, purpose: 'registration' }).catch(() => null);
-
-        sendError(
-          res,
-          emailErr.message || 'We could not send the verification code to your email. Please check your email address and try again.',
-          502
-        );
-        return;
+        otpSent = true;
+      } catch (otpErr: any) {
+        console.warn(`[Auth Register] Optional OTP email dispatch notice for ${normalizedEmail}:`, otpErr.message);
       }
 
-      sendSuccess(res, 'Registration code sent. Please check your email to complete registration.', {
-        email: normalizedEmail,
-        purpose: 'registration',
-      });
+      sendSuccess(
+        res,
+        otpSent
+          ? 'Account and profile created successfully! A verification code has also been sent to your email.'
+          : 'Account and profile created successfully! You are now logged in.',
+        {
+          user: user.toSafeObject(),
+          token,
+          otpSent,
+          email: normalizedEmail,
+          purpose: 'registration',
+        },
+        201
+      );
     } catch (error: any) {
       if (error.message?.includes('wait')) {
         sendError(res, error.message, 429);
@@ -148,7 +144,7 @@ export class AuthController {
           user: user.toSafeObject(),
           token,
         },
-        201
+        200
       );
     } catch (error) {
       next(error);
@@ -189,29 +185,13 @@ export class AuthController {
         return;
       }
 
-      // 3. Check if email is verified
-      if (!user.isEmailVerified) {
-        sendError(
-          res,
-          'Your email address is not verified. Please verify your email before logging in.',
-          403,
-          [
-            {
-              field: 'email',
-              message: 'Email address not verified. Please complete OTP verification.',
-            },
-          ]
-        );
-        return;
-      }
-
-      // 4. Check if account is suspended
+      // 3. Check if account is suspended
       if (user.accountStatus === 'suspended') {
         sendError(res, 'This account is suspended. Please contact ANTHIX support.', 403);
         return;
       }
 
-      // 5. Issue authenticated session
+      // 4. Issue authenticated session
       const token = AuthService.generateToken(user);
       AuthService.setAuthCookie(res, token);
 
@@ -236,7 +216,7 @@ export class AuthController {
 
       const user = await User.findOne({ email: normalizedEmail }).exec();
 
-      if (!user || !user.isEmailVerified) {
+      if (!user) {
         sendError(
           res,
           'No registered account found with this email. Please register first.',
@@ -335,11 +315,7 @@ export class AuthController {
         userName = user.name;
         metadata = { userId: user._id.toString() };
       } else {
-        const unverifiedUser = await User.findOne({
-          email: normalizedEmail,
-          isEmailVerified: false,
-        }).exec();
-
+        const user = await User.findOne({ email: normalizedEmail }).exec();
         const priorRecord = await OTPVerification.findOne({
           email: normalizedEmail,
           purpose: 'registration',
@@ -347,15 +323,15 @@ export class AuthController {
           .sort({ createdAt: -1 })
           .exec();
 
-        if (!unverifiedUser && (!priorRecord || !priorRecord.metadata?.passwordHash)) {
-          sendError(res, 'No pending registration found. Please register again.', 400);
+        if (!user && !priorRecord) {
+          sendError(res, 'No registration found for this email. Please register first.', 404);
           return;
         }
 
-        userName = unverifiedUser?.name || priorRecord?.metadata?.name || 'User';
+        userName = user?.name || priorRecord?.metadata?.name || 'User';
         metadata = {
           name: userName,
-          passwordHash: unverifiedUser?.passwordHash || priorRecord?.metadata?.passwordHash,
+          userId: user?._id?.toString(),
         };
       }
 

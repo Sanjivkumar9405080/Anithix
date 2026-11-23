@@ -113,11 +113,12 @@ async function runAllTests() {
         }),
       });
       const regData = await regRes.json();
-      assert(regRes.status === 200, 'POST /api/auth/register returns HTTP 200');
-      assert(regData.success === true, 'Registration initiates OTP creation');
+      assert(regRes.status === 201, 'POST /api/auth/register returns HTTP 201');
+      assert(regData.success === true, 'Registration creates profile and initiates optional OTP creation');
+      assert(regData.data && regData.data.user && regData.data.user.email === testEmail, 'User profile created immediately');
 
-      // 4b. Confirm Unverified Account CANNOT Log In
-      console.log('\n--- 4b. Unverified Account Login Protection ---');
+      // 4b. Confirm Unverified Account CAN Log In (OTP Verification is Optional)
+      console.log('\n--- 4b. Optional Verification: Unverified Account Can Log In & Access Profile ---');
       const unverifiedLoginRes = await fetch(`${BASE_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -127,12 +128,10 @@ async function runAllTests() {
         }),
       });
       const unverifiedLoginData = await unverifiedLoginRes.json();
-      assert(unverifiedLoginRes.status === 403, 'Unverified account login rejected with HTTP 403');
-      assert(unverifiedLoginData.success === false, 'Login returns success: false for unverified account');
-      assert(
-        unverifiedLoginData.message && unverifiedLoginData.message.includes('not verified'),
-        'Helpful error message informs user to verify email'
-      );
+      assert(unverifiedLoginRes.status === 200, 'Unverified account login succeeds with HTTP 200');
+      assert(unverifiedLoginData.success === true, 'Login returns success: true for user without mandatory OTP');
+      assert(Boolean(unverifiedLoginData.data.token), 'Session token returned for unverified user');
+      assert(unverifiedLoginData.data.user.isEmailVerified === false, 'User profile is currently unverified');
 
       // Retrieve the generated OTP from DB to simulate user email receipt
       const otpRecord = await OTPVerification.findOne({
@@ -170,8 +169,9 @@ async function runAllTests() {
         }),
       });
       const verifyRegData = await verifyRegRes.json();
-      assert(verifyRegRes.status === 201, 'Valid OTP verifies and returns HTTP 201 Created');
-      assert(verifyRegData.success === true, 'Account activated');
+      assert(verifyRegRes.status === 200, 'Valid OTP verifies and returns HTTP 200 OK');
+      assert(verifyRegData.success === true, 'Email address marked as verified');
+      assert(verifyRegData.data.user.isEmailVerified === true, 'Profile isEmailVerified updated to true');
 
       // 6. Test Email and Password Login (NO OTP Required)
       console.log('\n--- 6. Email and Password Login (No OTP Required) ---');

@@ -316,7 +316,9 @@ async function apiRequest<T = any>(
 // Authentication API
 // ----------------------------------------------------------------------
 
-export async function apiRegister(payload: RegisterPayload): Promise<ApiResponse<{ email: string; purpose: string }>> {
+export async function apiRegister(
+  payload: RegisterPayload
+): Promise<ApiResponse<{ user?: SafeUser; token?: string; email: string; purpose: string; otpSent?: boolean }>> {
   return apiRequest('/api/auth/register', {
     method: 'POST',
     body: JSON.stringify(payload),

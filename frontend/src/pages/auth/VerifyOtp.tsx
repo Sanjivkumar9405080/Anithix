@@ -151,7 +151,9 @@ export const VerifyOtp: React.FC = () => {
         </h1>
 
         <p className="text-sm text-text-secondary font-sans leading-relaxed">
-          We sent a 6-digit verification code to:
+          {purpose === 'registration'
+            ? 'Your account has been created! Verification is optional, but you can enter the code sent to:'
+            : 'We sent a 6-digit verification code to:'}
           <br />
           <strong className="text-text-main font-semibold">{email || 'your email'}</strong>
         </p>
@@ -209,6 +211,22 @@ export const VerifyOtp: React.FC = () => {
             Confirm & Continue
           </Button>
         </form>
+
+        {/* Optional Skip Option for Registration */}
+        {purpose === 'registration' && (
+          <div className="mt-4 pt-4 border-t border-border/70 text-center">
+            <Link
+              to={redirectTarget}
+              className="inline-flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl border border-primary/20 bg-background-lavender text-xs font-bold text-primary hover:bg-primary hover:text-white transition-all font-heading shadow-soft-xs"
+            >
+              <span>Skip for now & Go to Dashboard</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+            <p className="text-[11px] text-text-secondary mt-1.5 font-sans">
+              Your profile is ready. You can verify your email anytime.
+            </p>
+          </div>
+        )}
 
         {/* Resend Action */}
         <div className="mt-6 pt-5 border-t border-border flex items-center justify-between text-xs font-sans">
