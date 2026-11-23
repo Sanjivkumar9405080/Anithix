@@ -218,10 +218,11 @@ export function getAssetUrl(path?: string): string {
 
 /**
  * Common fetch wrapper that ensures credentials (cookies) are transmitted
+ * and provides comprehensive error diagnostics for network, CORS, and HTTP status codes.
  */
 async function apiRequest<T = any>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit & { timeoutMs?: number } = {}
 ): Promise<ApiResponse<T>> {
   const url = `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
 
@@ -230,19 +231,53 @@ async function apiRequest<T = any>(
     headers.set('Content-Type', 'application/json');
   }
 
+  // Setup 15-second request timeout controller
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), options.timeoutMs || 15000);
+
   try {
     const response = await fetch(url, {
       ...options,
       headers,
       credentials: 'include', // Ensure HttpOnly session cookies are transmitted
+      signal: options.signal || controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     const data = await response.json().catch(() => null);
 
     if (!response.ok) {
+      let defaultStatusMessage = `Request failed with HTTP status ${response.status}.`;
+      switch (response.status) {
+        case 400:
+          defaultStatusMessage = 'Bad request. Please verify the submitted data.';
+          break;
+        case 401:
+          defaultStatusMessage = 'Authentication required. Please sign in to access your account.';
+          break;
+        case 403:
+          defaultStatusMessage = 'Access denied. You do not have permission to view or modify this resource.';
+          break;
+        case 404:
+          defaultStatusMessage = 'The requested endpoint or resource was not found on the server.';
+          break;
+        case 429:
+          defaultStatusMessage = 'Rate limit exceeded. Please wait a few moments before trying again.';
+          break;
+        case 500:
+          defaultStatusMessage = 'Internal server error occurred on the backend. Please try again later.';
+          break;
+        case 502:
+        case 503:
+        case 504:
+          defaultStatusMessage = 'Backend service is temporarily unavailable or restarting. Please retry shortly.';
+          break;
+      }
+
       return {
         success: false,
-        message: data?.message || `Request failed with HTTP ${response.status}`,
+        message: data?.message || defaultStatusMessage,
         errors: Array.isArray(data?.errors) ? data.errors : undefined,
         data: data?.data,
       };
@@ -253,11 +288,26 @@ async function apiRequest<T = any>(
       message: data?.message || 'Operation successful',
       data: data?.data,
     };
-  } catch (error) {
+  } catch (error: any) {
+    clearTimeout(timeoutId);
     console.error(`[API Network Error] ${endpoint}:`, error);
+
+    let friendlyMessage = 'Unable to connect to the backend server. Please verify your internet connection.';
+
+    if (error?.name === 'AbortError') {
+      friendlyMessage = 'The request timed out while waiting for a response from the backend. The serverless function may still be waking up.';
+    } else if (
+      error instanceof TypeError ||
+      error?.message?.includes('Failed to fetch') ||
+      error?.message?.includes('NetworkError')
+    ) {
+      friendlyMessage =
+        'Unable to reach the backend API server. This is typically caused by a CORS restriction on the backend or Vercel Deployment Protection blocking cross-origin requests. Please verify backend CORS and environment settings.';
+    }
+
     return {
       success: false,
-      message: 'Unable to reach the server. Please check your network connection and verify the backend service is running.',
+      message: friendlyMessage,
     };
   }
 }
