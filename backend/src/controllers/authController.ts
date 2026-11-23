@@ -61,8 +61,25 @@ export class AuthController {
         passwordHash,
       });
 
-      // 5. Send Registration OTP email
-      await EmailService.sendRegistrationOtp(normalizedEmail, name.trim(), otp);
+      // 5. Send Registration OTP email with delivery failure guard
+      try {
+        await EmailService.sendRegistrationOtp(normalizedEmail, name.trim(), otp);
+      } catch (emailErr: any) {
+        console.error(`[Auth Register] Email dispatch failed for ${normalizedEmail}:`, emailErr.message);
+
+        // Clean up unverified user & OTP record so the user can re-try without orphaned records or cooldown locks
+        if (!existingUser) {
+          await User.deleteOne({ email: normalizedEmail }).catch(() => null);
+        }
+        await OTPVerification.deleteMany({ email: normalizedEmail, purpose: 'registration' }).catch(() => null);
+
+        sendError(
+          res,
+          emailErr.message || 'We could not send the verification code to your email. Please check your email address and try again.',
+          502
+        );
+        return;
+      }
 
       sendSuccess(res, 'Registration code sent. Please check your email to complete registration.', {
         email: normalizedEmail,
@@ -237,7 +254,14 @@ export class AuthController {
         userId: user._id.toString(),
       });
 
-      await EmailService.sendLoginOtp(normalizedEmail, user.name, otp);
+      try {
+        await EmailService.sendLoginOtp(normalizedEmail, user.name, otp);
+      } catch (emailErr: any) {
+        console.error(`[Auth Request Login OTP] Email dispatch failed for ${normalizedEmail}:`, emailErr.message);
+        await OTPVerification.deleteOne({ email: normalizedEmail, purpose: 'login', verified: false }).catch(() => null);
+        sendError(res, emailErr.message || 'Failed to dispatch login verification code. Please try again.', 502);
+        return;
+      }
 
       sendSuccess(res, 'Login verification code sent to your email address.', {
         email: normalizedEmail,
@@ -337,10 +361,17 @@ export class AuthController {
 
       const { otp } = await OtpService.createOtp(normalizedEmail, purpose, metadata);
 
-      if (purpose === 'login') {
-        await EmailService.sendLoginOtp(normalizedEmail, userName, otp);
-      } else {
-        await EmailService.sendRegistrationOtp(normalizedEmail, userName, otp);
+      try {
+        if (purpose === 'login') {
+          await EmailService.sendLoginOtp(normalizedEmail, userName, otp);
+        } else {
+          await EmailService.sendRegistrationOtp(normalizedEmail, userName, otp);
+        }
+      } catch (emailErr: any) {
+        console.error(`[Auth Resend OTP] Email dispatch failed for ${normalizedEmail}:`, emailErr.message);
+        await OTPVerification.deleteOne({ email: normalizedEmail, purpose, verified: false }).catch(() => null);
+        sendError(res, emailErr.message || 'Failed to dispatch verification code. Please try again shortly.', 502);
+        return;
       }
 
       sendSuccess(res, 'A new verification code has been dispatched to your email.', {

@@ -8,7 +8,7 @@ import { Demo } from '../models/Demo';
 import { Notification } from '../models/Notification';
 import { AuthService } from '../services/authService';
 import { EmailService } from '../services/emailService';
-import { env } from '../config/env';
+import { env, isEmailConfigured } from '../config/env';
 import { getDBStatus } from '../config/db';
 import { sendSuccess, sendError } from '../utils/apiResponse';
 
@@ -1047,7 +1047,7 @@ export class AdminController {
     next: NextFunction
   ): Promise<void> => {
     try {
-      const hasSmtp = Boolean(env.EMAIL_HOST && env.EMAIL_USER && env.EMAIL_PASS);
+      const hasSmtp = isEmailConfigured();
       const dbStatus = getDBStatus();
 
       sendSuccess(res, 'Admin system settings retrieved.', {
@@ -1061,7 +1061,7 @@ export class AdminController {
         emailProvider: {
           isConfigured: hasSmtp,
           mode: hasSmtp ? 'Active SMTP' : 'Development Mock Logger',
-          host: env.EMAIL_HOST ? `${env.EMAIL_HOST}:${env.EMAIL_PORT}` : 'Not configured (Mock)',
+          host: env.EMAIL_HOST ? `${env.EMAIL_HOST}:${env.EMAIL_PORT}` : env.EMAIL_SERVICE ? `${env.EMAIL_SERVICE} service` : 'Not configured (Mock)',
           sender: env.EMAIL_FROM,
         },
         database: {

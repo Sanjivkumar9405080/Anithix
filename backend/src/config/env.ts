@@ -13,10 +13,12 @@ export interface AppEnv {
   JWT_SECRET: string;
   JWT_EXPIRES_IN: string;
   COOKIE_NAME: string;
+  EMAIL_SERVICE?: string;
   EMAIL_HOST?: string;
   EMAIL_PORT: number;
   EMAIL_USER?: string;
   EMAIL_PASS?: string;
+  EMAIL_SECURE: boolean;
   EMAIL_FROM: string;
   OTP_EXPIRY_MINUTES: number;
   OTP_MAX_ATTEMPTS: number;
@@ -30,6 +32,44 @@ export interface AppEnv {
 
 const isProduction = process.env.NODE_ENV === 'production';
 
+// Resolve email credentials with support for common aliases across Vercel / Netlify / cloud hosts
+const resolvedEmailUser =
+  process.env.EMAIL_USER ||
+  process.env.SMTP_USER ||
+  process.env.SMTP_USERNAME ||
+  process.env.EMAIL_USERNAME;
+
+const resolvedEmailPass =
+  process.env.EMAIL_PASS ||
+  process.env.EMAIL_PASSWORD ||
+  process.env.SMTP_PASS ||
+  process.env.SMTP_PASSWORD;
+
+const rawHost = process.env.EMAIL_HOST || process.env.SMTP_HOST;
+const rawService = process.env.EMAIL_SERVICE || process.env.SMTP_SERVICE;
+const isGmailService =
+  Boolean(rawService && rawService.toLowerCase() === 'gmail') ||
+  Boolean(rawHost && rawHost.toLowerCase().includes('gmail'));
+
+const resolvedEmailHost = rawHost || (isGmailService ? 'smtp.gmail.com' : undefined);
+const resolvedEmailService = rawService || (isGmailService ? 'gmail' : undefined);
+
+const defaultPort = isGmailService ? '465' : '587';
+const resolvedEmailPort = parseInt(
+  process.env.EMAIL_PORT || process.env.SMTP_PORT || defaultPort,
+  10
+);
+
+const resolvedEmailSecure =
+  process.env.SMTP_SECURE === 'true' ||
+  process.env.EMAIL_SECURE === 'true' ||
+  resolvedEmailPort === 465;
+
+const resolvedEmailFrom =
+  process.env.EMAIL_FROM ||
+  process.env.SMTP_FROM ||
+  (resolvedEmailUser ? `ANTHIX Security <${resolvedEmailUser}>` : 'ANTHIX Security <no-reply@anthix.com>');
+
 export const env: AppEnv = {
   PORT: parseInt(process.env.PORT || '5000', 10),
   NODE_ENV: (process.env.NODE_ENV as 'development' | 'production' | 'test') || 'development',
@@ -39,11 +79,13 @@ export const env: AppEnv = {
   JWT_SECRET: process.env.JWT_SECRET || process.env.SESSION_SECRET || 'anthix_super_secret_jwt_key_2026_dev_fallback',
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',
   COOKIE_NAME: process.env.COOKIE_NAME || 'anthix_session',
-  EMAIL_HOST: process.env.EMAIL_HOST,
-  EMAIL_PORT: parseInt(process.env.EMAIL_PORT || '587', 10),
-  EMAIL_USER: process.env.EMAIL_USER,
-  EMAIL_PASS: process.env.EMAIL_PASS,
-  EMAIL_FROM: process.env.EMAIL_FROM || 'ANTHIX Security <no-reply@anthix.com>',
+  EMAIL_SERVICE: resolvedEmailService,
+  EMAIL_HOST: resolvedEmailHost,
+  EMAIL_PORT: resolvedEmailPort,
+  EMAIL_USER: resolvedEmailUser,
+  EMAIL_PASS: resolvedEmailPass,
+  EMAIL_SECURE: resolvedEmailSecure,
+  EMAIL_FROM: resolvedEmailFrom,
   OTP_EXPIRY_MINUTES: parseInt(process.env.OTP_EXPIRY_MINUTES || '5', 10),
   OTP_MAX_ATTEMPTS: parseInt(process.env.OTP_MAX_ATTEMPTS || '5', 10),
   OTP_RESEND_COOLDOWN_SECONDS: parseInt(process.env.OTP_RESEND_COOLDOWN_SECONDS || '60', 10),
@@ -52,6 +94,10 @@ export const env: AppEnv = {
   CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET,
   CLOUDINARY_URL: process.env.CLOUDINARY_URL,
   ALLOW_VERCEL_PREVIEWS: process.env.ALLOW_VERCEL_PREVIEWS === 'true' || !isProduction,
+};
+
+export const isEmailConfigured = (): boolean => {
+  return Boolean(env.EMAIL_USER && env.EMAIL_PASS && (env.EMAIL_SERVICE || env.EMAIL_HOST));
 };
 
 if (isProduction && (!process.env.JWT_SECRET && !process.env.SESSION_SECRET)) {
