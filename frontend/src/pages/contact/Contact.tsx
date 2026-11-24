@@ -184,6 +184,34 @@ export const Contact = () => {
           </div>
         ) : (
           <form onSubmit={handleSubmit} noValidate className="space-y-6">
+            {/* Authenticated Identity Pill: Confirms admin / user is recognized */}
+            {user && (
+              <div className="p-3.5 rounded-2xl bg-background-lavender/60 border border-primary/20 flex flex-wrap items-center justify-between gap-2 text-xs font-sans shadow-soft-xs">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-primary to-sky-400 text-white font-bold text-xs flex items-center justify-center font-heading shadow-soft-xs">
+                    {user.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <span className="text-text-secondary">Submitting as </span>
+                    <strong className="text-text-main font-semibold">{user.name}</strong>
+                    <span className="text-text-secondary ml-1 hidden sm:inline">({user.email})</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                      user.role === 'admin'
+                        ? 'bg-primary text-white shadow-soft-xs'
+                        : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                    }`}
+                  >
+                    {user.role === 'admin' ? 'Administrator' : 'Client Account'}
+                  </span>
+                </div>
+              </div>
+            )}
+
             {serverError && (
               <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200/80 text-rose-700 flex items-start gap-3 text-xs sm:text-sm font-sans shadow-soft-xs animate-fadeIn">
                 <AlertCircle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />

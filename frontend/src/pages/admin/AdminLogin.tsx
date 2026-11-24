@@ -43,7 +43,8 @@ export const AdminLogin: React.FC = () => {
       return;
     }
 
-    navigate('/admin', { replace: true });
+    const redirectTarget = (location.state as any)?.from || '/admin';
+    navigate(redirectTarget, { replace: true });
   };
 
   return (

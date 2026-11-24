@@ -28,14 +28,23 @@ export const authenticate = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    // 1. Extract token from HttpOnly cookie or Authorization Bearer header
-    let token = req.cookies?.[env.COOKIE_NAME];
+    // 1. Extract token from Authorization Bearer header, HttpOnly cookie, or query parameter
+    let token: string | undefined;
 
-    if (!token && req.headers.authorization) {
-      const parts = req.headers.authorization.split(' ');
-      if (parts.length === 2 && parts[0] === 'Bearer') {
-        token = parts[1];
+    if (req.headers.authorization) {
+      const authHeader = req.headers.authorization.trim();
+      const match = authHeader.match(/^bearer\s+(.+)$/i);
+      if (match && match[1]) {
+        token = match[1].trim();
       }
+    }
+
+    if (!token && req.cookies?.[env.COOKIE_NAME]) {
+      token = req.cookies[env.COOKIE_NAME];
+    }
+
+    if (!token && typeof req.query?.token === 'string') {
+      token = req.query.token.trim();
     }
 
     if (!token) {
@@ -51,8 +60,15 @@ export const authenticate = async (
       return;
     }
 
+    const userId = payload.userId || (payload as any).id;
+    if (!userId) {
+      AuthService.clearAuthCookie(res);
+      sendError(res, 'Session expired or invalid. Please log in again.', 401);
+      return;
+    }
+
     // 3. Confirm user still exists and account is active
-    const user = await User.findById(payload.userId).exec();
+    const user = await User.findById(userId).exec();
     if (!user || user.accountStatus !== 'active') {
       AuthService.clearAuthCookie(res);
       sendError(res, 'User account is inactive or not found.', 401);

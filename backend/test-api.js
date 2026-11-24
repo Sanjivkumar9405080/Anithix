@@ -366,6 +366,60 @@ async function runAllTests() {
       const adminSessionCookie = adminRawCookie.split(';')[0];
       const adminToken = adminLoginData.data.token;
 
+      // 11d2. Admin Contact Form Submission & Identity Verification using Bearer Token
+      console.log('\n--- 11d2. Admin Contact Form Submission & Bearer Auth ---');
+      const adminContactRes = await fetch(`${BASE_URL}/api/contact`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${adminToken}`,
+        },
+        body: JSON.stringify({
+          service: 'AI & Automation',
+          organization: 'ANTHIX Headquarters',
+          phone: '+1 800-555-0199',
+          subject: 'Admin Internal Inquiry',
+          message: 'Testing admin inquiry submission via Bearer token without cookies.',
+        }),
+      });
+      const adminContactData = await adminContactRes.json();
+      assert(adminContactRes.status === 201, 'Admin POST /api/contact with Bearer token succeeds with HTTP 201');
+      assert(adminContactData.success === true, 'Admin contact submission confirmed');
+
+      // Admin retrieves their inquiries (GET /api/contact/me) with Bearer token
+      const adminMyContactsRes = await fetch(`${BASE_URL}/api/contact/me`, {
+        headers: {
+          Authorization: `Bearer ${adminToken}`,
+        },
+      });
+      const adminMyContactsData = await adminMyContactsRes.json();
+      assert(adminMyContactsRes.status === 200, 'Admin GET /api/contact/me with Bearer token returns HTTP 200');
+      assert(Array.isArray(adminMyContactsData.data.contacts), 'Admin contacts array returned');
+
+      // Invalid token returns 401
+      const invalidTokenContactRes = await fetch(`${BASE_URL}/api/contact`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer invalid.or.tampered.token',
+        },
+        body: JSON.stringify({
+          service: 'Digital Solutions',
+          message: 'This inquiry should fail due to invalid token.',
+        }),
+      });
+      assert(invalidTokenContactRes.status === 401, 'Invalid Bearer token to /api/contact returns HTTP 401');
+
+      // GET /api/auth/me with admin Bearer token returns admin profile
+      const adminAuthMeRes = await fetch(`${BASE_URL}/api/auth/me`, {
+        headers: {
+          Authorization: `Bearer ${adminToken}`,
+        },
+      });
+      const adminAuthMeData = await adminAuthMeRes.json();
+      assert(adminAuthMeRes.status === 200, 'Admin GET /api/auth/me with Bearer token returns HTTP 200');
+      assert(adminAuthMeData.data.user.role === 'admin', 'Admin profile verified with role "admin"');
+
       // 11e. Admin Dashboard Overview
       console.log('\n--- 11e. Admin Dashboard Metrics (GET /api/admin/dashboard) ---');
       const adminDashRes = await fetch(`${BASE_URL}/api/admin/dashboard`, {

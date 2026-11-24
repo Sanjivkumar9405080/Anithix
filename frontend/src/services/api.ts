@@ -204,6 +204,53 @@ export interface AdminUser {
 
 export const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/$/, '');
 
+export const TOKEN_STORAGE_KEY = 'anthix_token';
+
+/**
+ * Retrieves the stored JWT authentication token from localStorage (checking standard and fallback keys).
+ */
+export function getAuthToken(): string | null {
+  try {
+    return (
+      localStorage.getItem(TOKEN_STORAGE_KEY) ||
+      localStorage.getItem('token') ||
+      localStorage.getItem('authToken') ||
+      null
+    );
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Stores the JWT authentication token into localStorage.
+ */
+export function setAuthToken(token?: string | null): void {
+  try {
+    if (token) {
+      localStorage.setItem(TOKEN_STORAGE_KEY, token);
+      localStorage.setItem('token', token);
+    } else {
+      removeAuthToken();
+    }
+  } catch (err) {
+    console.error('[Auth Storage Error]: Failed to store token', err);
+  }
+}
+
+/**
+ * Removes all auth token keys from localStorage.
+ */
+export function removeAuthToken(): void {
+  try {
+    localStorage.removeItem(TOKEN_STORAGE_KEY);
+    localStorage.removeItem('token');
+    localStorage.removeItem('authToken');
+  } catch (err) {
+    console.error('[Auth Storage Error]: Failed to remove token', err);
+  }
+}
+
 /**
  * Normalizes asset paths (e.g. avatars, uploaded documents) to ensure they resolve
  * against the remote Vercel backend in production or localhost in development.
@@ -217,8 +264,9 @@ export function getAssetUrl(path?: string): string {
 }
 
 /**
- * Common fetch wrapper that ensures credentials (cookies) are transmitted
- * and provides comprehensive error diagnostics for network, CORS, and HTTP status codes.
+ * Common fetch wrapper that ensures credentials (cookies) are transmitted,
+ * attaches Authorization Bearer tokens from localStorage, and provides
+ * comprehensive error diagnostics for network, CORS, and HTTP status codes.
  */
 async function apiRequest<T = any>(
   endpoint: string,
@@ -229,6 +277,12 @@ async function apiRequest<T = any>(
   const headers = new Headers(options.headers || {});
   if (!headers.has('Content-Type') && !(options.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json');
+  }
+
+  // 1. Ensure Authorization Bearer header is automatically attached if token exists
+  const token = getAuthToken();
+  if (token && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`);
   }
 
   // Setup 15-second request timeout controller
@@ -248,6 +302,11 @@ async function apiRequest<T = any>(
     const data = await response.json().catch(() => null);
 
     if (!response.ok) {
+      // If 401 Unauthorized, automatically purge stale/invalid token from storage
+      if (response.status === 401) {
+        removeAuthToken();
+      }
+
       let defaultStatusMessage = `Request failed with HTTP status ${response.status}.`;
       switch (response.status) {
         case 400:
@@ -281,6 +340,11 @@ async function apiRequest<T = any>(
         errors: Array.isArray(data?.errors) ? data.errors : undefined,
         data: data?.data,
       };
+    }
+
+    // Automatically persist fresh token if returned in response data
+    if (data?.success && data?.data?.token && typeof data.data.token === 'string') {
+      setAuthToken(data.data.token);
     }
 
     return {
@@ -361,6 +425,7 @@ export async function apiResendOtp(email: string, purpose: 'registration' | 'log
 }
 
 export async function apiLogout(): Promise<ApiResponse> {
+  removeAuthToken();
   return apiRequest('/api/auth/logout', {
     method: 'POST',
   });
@@ -617,6 +682,8 @@ export function getExportMessagesCsvUrl(params: AdminMessagesQueryParams = {}): 
   if (params.search) query.set('search', params.search);
   if (params.status && params.status !== 'all') query.set('status', params.status);
   if (params.service && params.service !== 'all') query.set('service', params.service);
+  const token = getAuthToken();
+  if (token) query.set('token', token);
 
   const qs = query.toString();
   return `${API_BASE_URL}/api/admin/export/messages${qs ? `?${qs}` : ''}`;

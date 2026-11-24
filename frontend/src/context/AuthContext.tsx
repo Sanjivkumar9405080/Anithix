@@ -13,6 +13,9 @@ import {
   apiResendOtp,
   apiLogout,
   apiAdminLogin,
+  getAuthToken,
+  setAuthToken,
+  removeAuthToken,
 } from '../services/api';
 
 interface AuthContextType {
@@ -20,6 +23,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isAdmin: boolean;
   isLoading: boolean;
+  token: string | null;
   login: (email: string, password: string) => Promise<ApiResponse<{ user: SafeUser; token?: string }>>;
   requestLoginOtp: (email: string) => Promise<ApiResponse<{ email: string; purpose: string }>>;
   verifyLoginOtp: (payload: VerifyOtpPayload) => Promise<ApiResponse<{ user: SafeUser }>>;
@@ -38,16 +42,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<SafeUser | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Check current session on application launch
+  // Check current session on application launch and page refresh
   const refreshUser = async () => {
     try {
       const res = await apiGetCurrentUser();
       if (res.success && res.data?.user) {
         setUser(res.data.user);
       } else {
+        removeAuthToken();
         setUser(null);
       }
     } catch (err) {
+      removeAuthToken();
       setUser(null);
     } finally {
       setIsLoading(false);
@@ -61,6 +67,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const register = async (payload: RegisterPayload) => {
     const res = await apiRegister(payload);
     if (res.success && res.data?.user) {
+      if (res.data.token) {
+        setAuthToken(res.data.token);
+      }
       setUser(res.data.user);
     }
     return res;
@@ -69,6 +78,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const verifyRegistrationOtp = async (payload: VerifyOtpPayload) => {
     const res = await apiVerifyRegistrationOtp(payload);
     if (res.success && res.data?.user) {
+      if (res.data.token) {
+        setAuthToken(res.data.token);
+      }
       setUser(res.data.user);
     }
     return res;
@@ -77,6 +89,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const login = async (email: string, password: string) => {
     const res = await apiLogin({ email, password });
     if (res.success && res.data?.user) {
+      if (res.data.token) {
+        setAuthToken(res.data.token);
+      }
       setUser(res.data.user);
     }
     return res;
@@ -89,6 +104,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const verifyLoginOtp = async (payload: VerifyOtpPayload) => {
     const res = await apiVerifyLoginOtp(payload);
     if (res.success && res.data?.user) {
+      if (res.data.token) {
+        setAuthToken(res.data.token);
+      }
       setUser(res.data.user);
     }
     return res;
@@ -97,6 +115,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const adminLogin = async (email: string, password: string) => {
     const res = await apiAdminLogin(email, password);
     if (res.success && res.data?.user) {
+      if (res.data.token) {
+        setAuthToken(res.data.token);
+      }
       setUser(res.data.user);
     }
     return res;
@@ -110,6 +131,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       await apiLogout();
     } finally {
+      removeAuthToken();
       setUser(null);
     }
   };
@@ -125,6 +147,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         isAuthenticated: Boolean(user),
         isAdmin: Boolean(user && user.role === 'admin'),
         isLoading,
+        token: getAuthToken(),
         login,
         register,
         verifyRegistrationOtp,

@@ -76,10 +76,11 @@ export const Login: React.FC = () => {
     setLoginSuccess(true);
     setIsSubmitting(false);
 
-    // If account has administrator privileges, route directly to the Admin Dashboard
+    // If account has administrator privileges and was targeting generic dashboard or root, route to the Admin Dashboard.
+    // If the admin was navigating specifically to a page like /contact, respect that destination.
     const userRole = res.data?.user?.role;
     const finalDestination =
-      userRole === 'admin' && (redirectTarget === '/dashboard' || redirectTarget === '/contact' || redirectTarget === '/')
+      userRole === 'admin' && (redirectTarget === '/dashboard' || redirectTarget === '/')
         ? '/admin'
         : redirectTarget;
 
