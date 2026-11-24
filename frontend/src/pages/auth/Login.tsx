@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   Mail,
@@ -15,7 +15,17 @@ import { useAuth } from '../../context/AuthContext';
 import { Button } from '../../components/common/Button';
 
 export const Login: React.FC = () => {
-  const [email, setEmail] = useState('');
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Extract redirect target and state notifications
+  const searchParams = new URLSearchParams(location.search);
+  const redirectTarget = searchParams.get('redirect') || (location.state as any)?.from || '/dashboard';
+  const customMessage = (location.state as any)?.message;
+  const successNotice = (location.state as any)?.successMessage;
+  const initialEmail = (location.state as any)?.email || searchParams.get('email') || '';
+
+  const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -24,13 +34,12 @@ export const Login: React.FC = () => {
   const [loginSuccess, setLoginSuccess] = useState(false);
 
   const { login } = useAuth();
-  const navigate = useNavigate();
-  const location = useLocation();
 
-  // Extract redirect target from query parameter or router state
-  const searchParams = new URLSearchParams(location.search);
-  const redirectTarget = searchParams.get('redirect') || (location.state as any)?.from || '/dashboard';
-  const customMessage = (location.state as any)?.message;
+  useEffect(() => {
+    if (initialEmail && !email) {
+      setEmail(initialEmail);
+    }
+  }, [initialEmail]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,8 +100,25 @@ export const Login: React.FC = () => {
 
   return (
     <div className="py-16 sm:py-24 px-4 sm:px-8 max-w-md mx-auto font-sans">
+      {/* Success Notification after registration or action */}
+      {successNotice && (
+        <div className="mb-6 p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs sm:text-sm flex items-start gap-3 shadow-soft-xs">
+          <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+          <div className="space-y-0.5">
+            <p className="font-sans font-bold text-sm text-emerald-900 leading-relaxed">
+              {successNotice}
+            </p>
+            {initialEmail && (
+              <p className="text-xs text-emerald-700 font-sans">
+                Account created for <strong className="font-semibold">{initialEmail}</strong>. Enter your password to sign in.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Friendly Context Notification if redirected from protected route (e.g. /contact) */}
-      {customMessage && (
+      {customMessage && customMessage !== successNotice && (
         <div className="mb-6 p-4 rounded-2xl bg-background-lavender border border-primary/20 text-text-main text-xs sm:text-sm flex items-start gap-3 shadow-soft-xs">
           <Sparkles className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
           <p className="leading-relaxed font-sans">{customMessage}</p>

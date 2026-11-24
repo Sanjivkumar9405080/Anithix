@@ -38,40 +38,57 @@ export class AuthController {
       // 2. Hash password with bcrypt (salt rounds: 12)
       const passwordHash = await AuthService.hashPassword(password);
 
+      // 2b. Optional OTP verification if user chose to enter one during registration
+      let isVerified = false;
+      const cleanOtp = (req.body.otp || '').trim();
+      if (cleanOtp && cleanOtp.length === 6) {
+        const otpResult = await OtpService.verifyOtp(normalizedEmail, 'registration', cleanOtp);
+        if (otpResult.success) {
+          isVerified = true;
+          await OTPVerification.deleteMany({ email: normalizedEmail, purpose: 'registration' });
+        } else {
+          sendError(
+            res,
+            otpResult.message || 'The provided verification code is invalid or has expired. Leave blank to register without OTP.',
+            otpResult.statusCode || 400
+          );
+          return;
+        }
+      }
+
       // 3. Create full active user profile immediately
       const user = await User.create({
         name: name.trim(),
         email: normalizedEmail,
         passwordHash,
-        isEmailVerified: false,
+        isEmailVerified: isVerified,
         role: 'user',
         accountStatus: 'active',
       });
 
-      // 4. Issue authenticated session (token + HttpOnly cookie) so profile is immediately active
+      // 4. Generate token for optional API consumers
       const token = AuthService.generateToken(user);
-      AuthService.setAuthCookie(res, token);
 
-      // 5. Optionally attempt OTP generation & email delivery (does not block account creation if email fails)
+      // 5. Optionally attempt OTP generation & email delivery if not already verified
       let otpSent = false;
-      try {
-        const { otp } = await OtpService.createOtp(normalizedEmail, 'registration', {
-          name: name.trim(),
-          passwordHash,
-          userId: user._id.toString(),
-        });
+      if (!isVerified) {
+        try {
+          const { otp } = await OtpService.createOtp(normalizedEmail, 'registration', {
+            name: name.trim(),
+            passwordHash,
+            userId: user._id.toString(),
+          });
 
-        await EmailService.sendRegistrationOtp(normalizedEmail, name.trim(), otp);
-        otpSent = true;
-      } catch (otpErr: any) {
-        console.warn(`[Auth Register] Optional OTP email dispatch notice for ${normalizedEmail}:`, otpErr.message);
+          await EmailService.sendRegistrationOtp(normalizedEmail, name.trim(), otp);
+          otpSent = true;
+        } catch (otpErr: any) {
+          console.warn(`[Auth Register] Optional OTP email dispatch notice for ${normalizedEmail}:`, otpErr.message);
+        }
       }
 
       sendSuccess(
         res,
-        otpSent
-          ? 'Account and profile created successfully! A verification code has also been sent to your email.'
-          : 'Account and profile created successfully! You are now logged in.',
+        'Registration successful! Please log in to continue.',
         {
           user: user.toSafeObject(),
           token,
@@ -324,15 +341,16 @@ export class AuthController {
           .exec();
 
         if (!user && !priorRecord) {
-          sendError(res, 'No registration found for this email. Please register first.', 404);
-          return;
+          // Allow prospective user on the registration page to request an optional OTP code
+          userName = (req.body.name || 'User').trim();
+          metadata = { name: userName };
+        } else {
+          userName = user?.name || priorRecord?.metadata?.name || 'User';
+          metadata = {
+            name: userName,
+            userId: user?._id?.toString(),
+          };
         }
-
-        userName = user?.name || priorRecord?.metadata?.name || 'User';
-        metadata = {
-          name: userName,
-          userId: user?._id?.toString(),
-        };
       }
 
       const { otp } = await OtpService.createOtp(normalizedEmail, purpose, metadata);

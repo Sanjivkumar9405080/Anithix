@@ -20,6 +20,11 @@ export const registerSchema = z
       .regex(/[a-z]/, 'Password must include at least one lowercase letter')
       .regex(/[0-9]/, 'Password must include at least one digit'),
     confirmPassword: z.string({ required_error: 'Please confirm your password' }),
+    otp: z
+      .string()
+      .trim()
+      .optional()
+      .or(z.literal('')),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: 'Passwords do not match',
@@ -79,4 +84,5 @@ export const resendOtpSchema = z.object({
   purpose: z.enum(['registration', 'login'], {
     required_error: 'Valid OTP purpose (registration or login) is required',
   }),
+  name: z.string().trim().max(100).optional(),
 });

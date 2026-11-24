@@ -108,12 +108,22 @@ export const VerifyOtp: React.FC = () => {
     // Success! Show confirmation then redirect
     setSuccessMessage(
       purpose === 'registration'
-        ? 'Account successfully activated! Redirecting...'
+        ? 'Account successfully verified! Redirecting to login...'
         : 'Sign in successful! Redirecting...'
     );
 
     setTimeout(() => {
-      navigate(redirectTarget, { replace: true });
+      if (purpose === 'registration') {
+        navigate('/login', {
+          replace: true,
+          state: {
+            successMessage: 'Account verified successfully! Please log in to continue.',
+            email,
+          },
+        });
+      } else {
+        navigate(redirectTarget, { replace: true });
+      }
     }, 1200);
   };
 
@@ -216,14 +226,18 @@ export const VerifyOtp: React.FC = () => {
         {purpose === 'registration' && (
           <div className="mt-4 pt-4 border-t border-border/70 text-center">
             <Link
-              to={redirectTarget}
+              to="/login"
+              state={{
+                successMessage: 'Registration successful! Please log in to continue.',
+                email,
+              }}
               className="inline-flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl border border-primary/20 bg-background-lavender text-xs font-bold text-primary hover:bg-primary hover:text-white transition-all font-heading shadow-soft-xs"
             >
-              <span>Skip for now & Go to Dashboard</span>
+              <span>Skip for now & Go to Sign In</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
             <p className="text-[11px] text-text-secondary mt-1.5 font-sans">
-              Your profile is ready. You can verify your email anytime.
+              Your profile is ready. You can log in and verify your email anytime.
             </p>
           </div>
         )}

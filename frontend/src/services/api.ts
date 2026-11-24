@@ -28,6 +28,7 @@ export interface RegisterPayload {
   email: string;
   password: string;
   confirmPassword: string;
+  otp?: string;
 }
 
 export interface LoginPayload {
@@ -417,10 +418,14 @@ export async function apiVerifyLoginOtp(payload: VerifyOtpPayload): Promise<ApiR
   });
 }
 
-export async function apiResendOtp(email: string, purpose: 'registration' | 'login'): Promise<ApiResponse> {
+export async function apiResendOtp(
+  email: string,
+  purpose: 'registration' | 'login',
+  name?: string
+): Promise<ApiResponse> {
   return apiRequest('/api/auth/resend-otp', {
     method: 'POST',
-    body: JSON.stringify({ email, purpose }),
+    body: JSON.stringify({ email, purpose, name }),
   });
 }
 

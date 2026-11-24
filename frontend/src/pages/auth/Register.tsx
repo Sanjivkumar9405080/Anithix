@@ -1,6 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { User, Mail, Lock, Eye, EyeOff, ArrowRight, Sparkles, AlertCircle } from 'lucide-react';
+import {
+  User,
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  ArrowRight,
+  Sparkles,
+  AlertCircle,
+  KeyRound,
+  RefreshCw,
+  CheckCircle2,
+} from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { Button } from '../../components/common/Button';
 
@@ -10,6 +22,7 @@ export const Register: React.FC = () => {
     email: '',
     password: '',
     confirmPassword: '',
+    otp: '',
   });
 
   const [showPassword, setShowPassword] = useState(false);
@@ -17,13 +30,48 @@ export const Register: React.FC = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [otpSentNotice, setOtpSentNotice] = useState<string | null>(null);
+  const [otpCooldown, setOtpCooldown] = useState(0);
 
-  const { register } = useAuth();
+  const { register, resendOtp } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   const searchParams = new URLSearchParams(location.search);
   const redirectTarget = searchParams.get('redirect') || (location.state as any)?.from || '/dashboard';
+
+  // Cooldown timer for requesting OTP
+  useEffect(() => {
+    if (otpCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setOtpCooldown((prev) => prev - 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [otpCooldown]);
+
+  const handleRequestOtp = async () => {
+    const cleanEmail = formData.email.trim().toLowerCase();
+    if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      setErrors((prev) => ({ ...prev, email: 'Enter a valid email address first to receive a code.' }));
+      return;
+    }
+
+    setIsSendingOtp(true);
+    setGeneralError(null);
+    setOtpSentNotice(null);
+
+    const res = await resendOtp(cleanEmail, 'registration', formData.name.trim());
+    setIsSendingOtp(false);
+
+    if (!res.success) {
+      setGeneralError(res.message || 'Unable to dispatch verification code. You can still register without OTP.');
+      return;
+    }
+
+    setOtpSentNotice(`Verification code sent to ${cleanEmail}`);
+    setOtpCooldown(60);
+  };
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -70,12 +118,23 @@ export const Register: React.FC = () => {
     setGeneralError(null);
 
     const cleanEmail = formData.email.trim().toLowerCase();
+    const cleanOtp = formData.otp.trim();
+
+    if (cleanOtp && !/^\d{6}$/.test(cleanOtp)) {
+      setErrors((prev) => ({
+        ...prev,
+        otp: 'Verification code must be 6 digits, or leave blank to register without OTP.',
+      }));
+      setIsSubmitting(false);
+      return;
+    }
 
     const res = await register({
       name: formData.name.trim(),
       email: cleanEmail,
       password: formData.password,
       confirmPassword: formData.confirmPassword,
+      otp: cleanOtp || undefined,
     });
 
     if (!res.success) {
@@ -91,12 +150,15 @@ export const Register: React.FC = () => {
       return;
     }
 
-    // Navigate to OTP verification screen
-    navigate(
-      `/verify-otp?email=${encodeURIComponent(cleanEmail)}&purpose=registration&redirect=${encodeURIComponent(
-        redirectTarget
-      )}`
-    );
+    // Expected Flow: Register Page -> OTP (Optional) -> Successful Registration -> Login Page
+    navigate(`/login?redirect=${encodeURIComponent(redirectTarget)}`, {
+      replace: true,
+      state: {
+        successMessage: 'Registration successful! Please log in to continue.',
+        message: 'Registration successful! Please log in to continue.',
+        email: cleanEmail,
+      },
+    });
   };
 
   return (
@@ -246,6 +308,67 @@ export const Register: React.FC = () => {
             {errors.confirmPassword && <p className="text-xs text-rose-500 mt-1 font-sans">{errors.confirmPassword}</p>}
           </div>
 
+          {/* OTP Verification (Optional) */}
+          <div className="pt-1">
+            <div className="flex items-center justify-between mb-1.5">
+              <div className="flex items-center gap-2">
+                <label htmlFor="reg-otp" className="block text-xs font-bold text-text-main uppercase tracking-wider font-heading">
+                  Verification Code
+                </label>
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-background-lavender text-primary border border-primary/20 tracking-wide">
+                  OTP (Optional)
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleRequestOtp}
+                disabled={isSendingOtp || otpCooldown > 0}
+                className={`text-xs font-semibold inline-flex items-center gap-1 transition-colors ${
+                  otpCooldown > 0 || isSendingOtp
+                    ? 'text-text-secondary/50 cursor-not-allowed'
+                    : 'text-primary hover:text-primary-deep'
+                }`}
+              >
+                <RefreshCw className={`w-3 h-3 ${isSendingOtp ? 'animate-spin' : ''}`} />
+                <span>{otpCooldown > 0 ? `Resend in ${otpCooldown}s` : 'Get Code via Email'}</span>
+              </button>
+            </div>
+
+            <div className="relative">
+              <KeyRound className="w-4 h-4 text-text-secondary absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                id="reg-otp"
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                value={formData.otp}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, '').slice(0, 6);
+                  setFormData({ ...formData, otp: val });
+                  if (errors.otp) setErrors({ ...errors, otp: '' });
+                }}
+                placeholder="Enter 6-digit code (leave blank to skip)"
+                className={`w-full pl-10 pr-4 py-2.5 rounded-xl bg-white border text-sm text-text-main placeholder:text-text-secondary/60 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-sans ${
+                  errors.otp ? 'border-rose-400 focus:border-rose-500' : 'border-border focus:border-primary'
+                }`}
+              />
+            </div>
+
+            {errors.otp && <p className="text-xs text-rose-500 mt-1 font-sans">{errors.otp}</p>}
+
+            {otpSentNotice && (
+              <p className="text-[11px] text-emerald-600 mt-1.5 font-sans flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0 text-emerald-500" />
+                <span>{otpSentNotice}</span>
+              </p>
+            )}
+
+            <p className="text-[11px] text-text-secondary mt-1.5 font-sans leading-normal">
+              OTP verification is optional. You can leave this blank to register directly without an OTP code.
+            </p>
+          </div>
+
           <Button
             type="submit"
             size="lg"
@@ -253,7 +376,7 @@ export const Register: React.FC = () => {
             icon={<ArrowRight className="w-4 h-4" />}
             className="w-full mt-4"
           >
-            Create Account & Send Code
+            Create Account
           </Button>
         </form>
 

@@ -27,9 +27,9 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<ApiResponse<{ user: SafeUser; token?: string }>>;
   requestLoginOtp: (email: string) => Promise<ApiResponse<{ email: string; purpose: string }>>;
   verifyLoginOtp: (payload: VerifyOtpPayload) => Promise<ApiResponse<{ user: SafeUser }>>;
-  register: (payload: RegisterPayload) => Promise<ApiResponse<{ email: string; purpose: string }>>;
+  register: (payload: RegisterPayload) => Promise<ApiResponse<{ user?: SafeUser; token?: string; email: string; purpose: string; otpSent?: boolean }>>;
   verifyRegistrationOtp: (payload: VerifyOtpPayload) => Promise<ApiResponse<{ user: SafeUser }>>;
-  resendOtp: (email: string, purpose: 'registration' | 'login') => Promise<ApiResponse>;
+  resendOtp: (email: string, purpose: 'registration' | 'login', name?: string) => Promise<ApiResponse>;
   adminLogin: (email: string, password: string) => Promise<ApiResponse<{ user: SafeUser }>>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -66,12 +66,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const register = async (payload: RegisterPayload) => {
     const res = await apiRegister(payload);
-    if (res.success && res.data?.user) {
-      if (res.data.token) {
-        setAuthToken(res.data.token);
-      }
-      setUser(res.data.user);
-    }
+    // Explicitly purge tokens so that the user logs in fresh on the Login page
+    removeAuthToken();
+    setUser(null);
     return res;
   };
 
@@ -123,8 +120,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return res;
   };
 
-  const resendOtp = async (email: string, purpose: 'registration' | 'login') => {
-    return apiResendOtp(email, purpose);
+  const resendOtp = async (email: string, purpose: 'registration' | 'login', name?: string) => {
+    return apiResendOtp(email, purpose, name);
   };
 
   const logout = async () => {
